@@ -2,8 +2,8 @@ pragma solidity ^0.4.24;
 
 contract Payment {
   uint public timeout;
-  address sender;
-  address recipient;
+  address public sender;
+  address public recipient;
 
   function openChannel(address _recipient, uint _timeout) public payable {
     sender = msg.sender;
