@@ -1,7 +1,6 @@
 const { getWeb3, getContractInstance} = require('./helpers/web3.10');
 const ethUtil = require('ethereumjs-util');
-// const zephelpers = require('openzeppelin-solidity/test/helpers/advanceToBlock');
-// const btt = require('./helpers/blockTimeTravel');
+const { advanceTimeAndBlock } = require('./helpers/blockTimeTravel');
 const web3 = getWeb3();
 const getInstance = getContractInstance(web3);
 
@@ -27,7 +26,7 @@ contract('1-1 unidirectional payment channel', async (accounts) => {
   // setup parameters
   const sender = accounts[0];
   const recipient = accounts[1];
-  const timeout = 60*60*24;
+  const timeout = 60*60*24; // 1 day
   const deposit = web3.utils.toBN(web3.utils.toWei('1', 'ether'));
   
 
@@ -47,7 +46,7 @@ contract('1-1 unidirectional payment channel', async (accounts) => {
     const _timeout = await channel.methods.timeout().call();
     const block = await web3.eth.getBlock(res.blockNumber);
     assert.strictEqual(web3.utils.hexToNumber(web3.utils.toHex(_timeout)), timeout + parseInt(block.timestamp));
-  })
+  });
 
   it('should close channel after send a proof by recipient', async () => {
     // get current balances
@@ -87,5 +86,30 @@ contract('1-1 unidirectional payment channel', async (accounts) => {
     assert.strictEqual(senderBalance.add(channelBalance).sub(amount).toString(), _senderBalance.toString(), `sender balance should minus ${amount}`);
     assert.strictEqual(recipientBalance.add(amount).sub(fee).toString(), _recipientBalance.toString(), `recipient balance should add ${amount}`);
 
-  })
+  });
+})
+
+contract('test channel timeout', async (accounts) => {
+  // get instance of contract
+  const instance = getInstance("Channel");
+  let channel = instance;
+
+  // setup parameters
+  const sender = accounts[0];
+  const recipient = accounts[1];
+  const timeout = 60*60*24; // 1 day
+  const deposit = web3.utils.toBN(web3.utils.toWei('1', 'ether'));
+
+  it('should refund after channel timeout', async () => {
+    // openChannel
+    let res = await channel.methods.openChannel(recipient, timeout).send({from: sender, value: deposit});
+    assert.isTrue(res.status, 'openChannel transacton should be true');
+
+    // time travel
+    const block = await advanceTimeAndBlock(timeout+1);
+
+    // get fund by sender
+    res = await channel.methods.channelTimeout().send({from: sender});
+    assert.isTrue(res.status, 'openChannel transacton should be true');
+  });
 })
