@@ -18,7 +18,6 @@ contract Channel {
     bytes32 proof;
 
     signer = ecrecover(keccak256("\x19Ethereum Signed Message:\n32", h), v, r, s);
-    
     assert(signer == sender);
 
     proof = keccak256(this, value);
