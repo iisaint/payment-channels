@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-contract Payment {
+contract Channel {
   uint public timeout;
   address public sender;
   address public recipient;

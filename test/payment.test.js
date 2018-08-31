@@ -5,9 +5,9 @@ const ethUtil = require('ethereumjs-util');
 const web3 = getWeb3();
 const getInstance = getContractInstance(web3);
 
-contract('Payment channel test', async (accounts) => {
+contract('1-1 unidirectional payment channel', async (accounts) => {
   // get instance of contract
-  const instance = getInstance("Payment");
+  const instance = getInstance("Channel");
   let channel = instance;
   
   // private key copied from 'ganache-cli -d'
