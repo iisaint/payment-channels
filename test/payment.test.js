@@ -28,49 +28,64 @@ contract('Payment channel test', async (accounts) => {
   const sender = accounts[0];
   const recipient = accounts[1];
   const timeout = 60*60*24;
-  const value = web3.utils.toWei('1', 'ether');
+  const deposit = web3.utils.toBN(web3.utils.toWei('1', 'ether'));
+  
 
   it("should open channel with 1 ether in the first account", async () => {
     // openChannel
-    const res = await channel.methods.openChannel(recipient, timeout).send({from: sender, value: web3.utils.toWei('1', 'ether')});
+    const res = await channel.methods.openChannel(recipient, timeout).send({from: sender, value: deposit});
 
     // check sender
     const _sender = await channel.methods.sender().call();
-    assert.equal(_sender.toLowerCase(), sender);
+    assert.strictEqual(_sender.toLowerCase(), sender);
 
     // check recipient
     const _recipient = await channel.methods.recipient().call();
-    assert.equal(_recipient.toLowerCase(), recipient);
+    assert.strictEqual(_recipient.toLowerCase(), recipient);
     
     // check timeout
     const _timeout = await channel.methods.timeout().call();
     const block = await web3.eth.getBlock(res.blockNumber);
-    assert.equal(web3.utils.hexToNumber(web3.utils.toHex(_timeout)), timeout + parseInt(block.timestamp));
+    assert.strictEqual(web3.utils.hexToNumber(web3.utils.toHex(_timeout)), timeout + parseInt(block.timestamp));
   })
 
   it('should close channel after send a proof by recipient', async () => {
+    // get current balances
+    let senderBalance = await web3.eth.getBalance(sender);
+    senderBalance = web3.utils.toBN(senderBalance);
+    let recipientBalance = await web3.eth.getBalance(recipient);
+    recipientBalance = web3.utils.toBN(recipientBalance);
+    let channelBalance = await web3.eth.getBalance(channel.options.address);
+    channelBalance = web3.utils.toBN(channelBalance);
+    
     // sign a message for 0.1 eth
-    let value = web3.utils.toWei('0.1', 'ether');
+    let amount = web3.utils.toBN(web3.utils.toWei('0.1', 'ether'));
     const channelAddress = channel.options.address;
 
-    // sha3
+    // prepare off-chain transaction, sign(sha3(channel, amount), sender)
     let digest = web3.utils.soliditySha3({
       t: 'address',
       v: channelAddress
     },{
       t: 'uint256',
-      v: value
+      v: amount
     });
-    console.log(`digest = ${digest}, ${digest.length}`);
-
     // sign the digest with sender
     const sig = await web3.eth.accounts.sign(digest, pkeys[0]);
-    console.log(JSON.stringify(sig, undefined, 1));
     
-    const result = await channel.methods.closeChannel(digest, web3.utils.toDecimal(sig.v), sig.r, sig.s, value).send({from: recipient});
-    console.log(result);
+    let result = await channel.methods.closeChannel(digest, web3.utils.toDecimal(sig.v), sig.r, sig.s, amount).send({from: recipient});
+    assert.isTrue(result.status, 'colseChannel transacton should be true');
+
+    // check both balance
+    let _senderBalance = await web3.eth.getBalance(sender);
+    _senderBalance = web3.utils.toBN(_senderBalance);
+    let _recipientBalance = await web3.eth.getBalance(recipient);
+    _recipientBalance = web3.utils.toBN(_recipientBalance);
+    let tx = await web3.eth.getTransaction(result.transactionHash);
+    let fee = web3.utils.toBN(result.gasUsed).mul(web3.utils.toBN(tx.gasPrice));
+
+    assert.strictEqual(senderBalance.add(channelBalance).sub(amount).toString(), _senderBalance.toString(), `sender balance should minus ${amount}`);
+    assert.strictEqual(recipientBalance.add(amount).sub(fee).toString(), _recipientBalance.toString(), `recipient balance should add ${amount}`);
 
   })
 })
-
-function zfill(num) { if (num.substr(0,2)=='0x') num = num.substr(2, num.length); var s = num+""; while (s.length < 64) s = "0" + s; return s; }
