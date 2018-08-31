@@ -17,9 +17,7 @@ contract Channel {
     address signer;
     bytes32 proof;
 
-    bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-    bytes32 prefixedHash = keccak256(prefix, h);
-    signer = ecrecover(prefixedHash, v, r, s);
+    signer = ecrecover(keccak256("\x19Ethereum Signed Message:\n32", h), v, r, s);
     
     assert(signer == sender);
 
